@@ -4,17 +4,25 @@ import { getMediaDetails, getImageUrl } from '../services/tmdbService';
 import { Loader2, Calendar, Clock, Star, ArrowRight, Layers } from 'lucide-react';
 import { GeminiAssistant } from '../components/GeminiAssistant';
 import { useAuth } from '../context/AuthContext';
+import { PersonModal } from '../components/PersonModal';
+import { ReviewSection } from '../components/ReviewSection';
+import { ScoreBoard } from '../components/ScoreBoard';
 
 interface MediaDetailsPageProps {
   mediaId: number;
   mediaType: MediaType;
   onBack: () => void;
+  // We need to allow navigating to other movies from the person modal
+  onNavigateToMedia?: (id: number, type: MediaType) => void;
 }
 
-export const MediaDetailsPage: React.FC<MediaDetailsPageProps> = ({ mediaId, mediaType, onBack }) => {
+export const MediaDetailsPage: React.FC<MediaDetailsPageProps> = ({ mediaId, mediaType, onBack, onNavigateToMedia }) => {
   const [item, setItem] = useState<MediaItem | null>(null);
   const [loading, setLoading] = useState(true);
   const { toggleWatchlist, toggleWatched, isInWatchlist, isWatched, user } = useAuth();
+  
+  // State for Person Modal
+  const [selectedPersonId, setSelectedPersonId] = useState<number | null>(null);
 
   useEffect(() => {
     const fetchDetails = async () => {
@@ -24,6 +32,8 @@ export const MediaDetailsPage: React.FC<MediaDetailsPageProps> = ({ mediaId, med
       setLoading(false);
     };
     fetchDetails();
+    // Scroll to top when media changes
+    window.scrollTo(0, 0);
   }, [mediaId, mediaType]);
 
   if (loading) {
@@ -53,6 +63,13 @@ export const MediaDetailsPage: React.FC<MediaDetailsPageProps> = ({ mediaId, med
     if (!user) { alert("لطفا وارد شوید"); return; }
     action();
   }
+
+  // Handle navigation from modal (if onNavigateToMedia is provided, otherwise reload/update)
+  const handlePersonMediaClick = (id: number, type: MediaType) => {
+      if (onNavigateToMedia) {
+          onNavigateToMedia(id, type);
+      }
+  };
 
   // Context for Gemini
   const geminiContext = `
@@ -120,14 +137,14 @@ export const MediaDetailsPage: React.FC<MediaDetailsPageProps> = ({ mediaId, med
             {/* Info */}
             <div className="flex-1 pt-4 md:pt-32 text-center md:text-right">
               <h1 className="text-3xl md:text-5xl font-bold mb-2 text-white">{item.title}</h1>
-              <p className="text-gray-400 text-lg mb-4">{item.original_title}</p>
+              <p className="text-gray-400 text-lg mb-6">{item.original_title}</p>
               
+              {/* ScoreBoard */}
+              <div className="mb-8 flex justify-center md:justify-start">
+                  <ScoreBoard tmdbScore={item.vote_average} voteCount={item.vote_count} />
+              </div>
+
               <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 md:gap-6 mb-6 text-sm md:text-base">
-                <div className="flex items-center gap-1 text-filmento-yellow font-bold">
-                    <Star fill="currentColor" size={20} />
-                    <span className="text-lg">{item.vote_average.toFixed(1)}</span>
-                    <span className="text-gray-500 font-normal">/10</span>
-                </div>
                 <div className="flex items-center gap-1 text-gray-300">
                     <Calendar size={18} />
                     {item.release_date}
@@ -174,7 +191,11 @@ export const MediaDetailsPage: React.FC<MediaDetailsPageProps> = ({ mediaId, med
         <h2 className="text-2xl font-bold text-filmento-yellow mb-6 border-r-4 border-filmento-yellow pr-3">بازیگران اصلی</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {cast.map(person => (
-                <div key={person.id} className="bg-filmento-card rounded-lg overflow-hidden shadow">
+                <div 
+                    key={person.id} 
+                    className="bg-filmento-card rounded-lg overflow-hidden shadow cursor-pointer hover:ring-2 hover:ring-filmento-yellow transition transform hover:-translate-y-1"
+                    onClick={() => setSelectedPersonId(person.id)}
+                >
                     <img 
                         src={getImageUrl(person.profile_path)} 
                         alt={person.name}
@@ -188,9 +209,21 @@ export const MediaDetailsPage: React.FC<MediaDetailsPageProps> = ({ mediaId, med
             ))}
         </div>
       </div>
+      
+      {/* Reviews Section */}
+      <ReviewSection mediaId={mediaId} mediaType={mediaType} />
 
       {/* Floating AI Assistant specialized for this movie */}
       <GeminiAssistant context={geminiContext} />
+
+      {/* Person Details Modal */}
+      {selectedPersonId && (
+          <PersonModal 
+            personId={selectedPersonId} 
+            onClose={() => setSelectedPersonId(null)}
+            onMediaClick={handlePersonMediaClick}
+          />
+      )}
     </div>
   );
 };

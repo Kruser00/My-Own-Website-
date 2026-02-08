@@ -77,7 +77,8 @@ const FilmentoApp = () => {
                 <MediaDetailsPage 
                     mediaId={selectedMedia.id} 
                     mediaType={selectedMedia.type}
-                    onBack={() => setCurrentView('home')} 
+                    onBack={() => setCurrentView('home')}
+                    onNavigateToMedia={handleMediaClick}
                 />
             ) : null;
         case 'home':

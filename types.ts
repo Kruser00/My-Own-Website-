@@ -21,6 +21,29 @@ export interface MediaItem {
   };
 }
 
+export interface Person {
+  id: number;
+  name: string;
+  biography: string;
+  birthday: string | null;
+  place_of_birth: string | null;
+  profile_path: string | null;
+  known_for_department: string;
+  combined_credits: {
+    cast: MediaItem[];
+  };
+}
+
+export interface Review {
+  id: string;
+  author: string;
+  avatar: string | null;
+  content: string;
+  rating: number | null;
+  created_at: string;
+  source: 'tmdb' | 'user';
+}
+
 // Raw TMDB interfaces for internal casting
 export interface TmdbMovieRaw {
   id: number;

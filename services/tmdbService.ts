@@ -1,4 +1,4 @@
-import { MediaItem, TmdbResponse, TmdbMovieRaw, TmdbTvRaw, MediaType } from '../types';
+import { MediaItem, TmdbResponse, TmdbMovieRaw, TmdbTvRaw, MediaType, Person, Review } from '../types';
 
 const BASE_URL = 'https://api.themoviedb.org/3';
 const LANGUAGE = 'fa-IR'; // Persian language
@@ -128,6 +128,58 @@ export const getMediaDetails = async (id: number, type: MediaType): Promise<Medi
     console.error("Failed to fetch details:", error);
     return null;
   }
+};
+
+export const getPersonDetails = async (id: number): Promise<Person | null> => {
+    try {
+        const data = await fetchFromTmdb<any>(`/person/${id}`, { append_to_response: 'combined_credits' });
+        
+        // Normalize credits
+        const cast = (data.combined_credits?.cast || [])
+            .filter((c: any) => c.media_type === 'movie' || c.media_type === 'tv')
+            .filter((c: any) => c.poster_path) // Filter out items without posters to look better
+            .map((c: any) => c.media_type === 'movie' ? normalizeMovie(c) : normalizeTv(c))
+            .sort((a: MediaItem, b: MediaItem) => b.vote_count - a.vote_count) // Sort by popularity/votes
+            .slice(0, 15); // Limit to top 15
+
+        return {
+            id: data.id,
+            name: data.name,
+            biography: data.biography,
+            birthday: data.birthday,
+            place_of_birth: data.place_of_birth,
+            profile_path: data.profile_path,
+            known_for_department: data.known_for_department,
+            combined_credits: { cast }
+        };
+
+    } catch (error) {
+        console.error("Failed to fetch person:", error);
+        return null;
+    }
+};
+
+export const getTmdbReviews = async (id: number, type: MediaType): Promise<Review[]> => {
+    try {
+        const endpoint = type === 'movie' ? `/movie/${id}/reviews` : `/tv/${id}/reviews`;
+        // Reviews are often in English, so we might not want to force language=fa-IR if we want to see content
+        // But for consistency let's try. TMDB often returns empty for non-english.
+        // Let's try without language param or just use default
+        const data = await fetchFromTmdb<TmdbResponse<any>>(endpoint, { language: 'en-US' }); 
+        
+        return data.results.map((r: any) => ({
+            id: r.id,
+            author: r.author,
+            avatar: r.author_details?.avatar_path ? (r.author_details.avatar_path.startsWith('/') ? getImageUrl(r.author_details.avatar_path) : r.author_details.avatar_path.substring(1)) : null,
+            content: r.content,
+            rating: r.author_details?.rating || null,
+            created_at: r.created_at,
+            source: 'tmdb'
+        }));
+    } catch (error) {
+        console.error("Failed to fetch reviews:", error);
+        return [];
+    }
 };
 
 export const getImageUrl = (path: string | null, size: 'w500' | 'original' = 'w500') => {
