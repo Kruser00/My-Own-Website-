@@ -1,4 +1,28 @@
-export interface Movie {
+export type MediaType = 'movie' | 'tv';
+
+export interface MediaItem {
+  id: number;
+  type: MediaType;
+  title: string;
+  original_title: string;
+  overview: string;
+  poster_path: string | null;
+  backdrop_path: string | null;
+  release_date: string; // Used for both release_date (movie) and first_air_date (tv)
+  vote_average: number;
+  vote_count: number;
+  genre_ids?: number[];
+  genres?: Genre[];
+  runtime?: number; // For movies
+  number_of_seasons?: number; // For TV
+  credits?: {
+    cast: CastMember[];
+    crew: CrewMember[];
+  };
+}
+
+// Raw TMDB interfaces for internal casting
+export interface TmdbMovieRaw {
   id: number;
   title: string;
   original_title: string;
@@ -9,12 +33,19 @@ export interface Movie {
   vote_average: number;
   vote_count: number;
   genre_ids?: number[];
-  genres?: Genre[];
-  runtime?: number;
-  credits?: {
-    cast: CastMember[];
-    crew: CrewMember[];
-  };
+}
+
+export interface TmdbTvRaw {
+  id: number;
+  name: string;
+  original_name: string;
+  overview: string;
+  poster_path: string | null;
+  backdrop_path: string | null;
+  first_air_date: string;
+  vote_average: number;
+  vote_count: number;
+  genre_ids?: number[];
 }
 
 export interface Genre {
@@ -46,4 +77,16 @@ export interface ChatMessage {
   role: 'user' | 'model';
   text: string;
   isError?: boolean;
+}
+
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  avatar?: string;
+}
+
+export interface UserLists {
+  watchlist: MediaItem[];
+  watched: MediaItem[];
 }

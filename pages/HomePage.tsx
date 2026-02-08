@@ -1,27 +1,29 @@
 import React, { useEffect, useState } from 'react';
-import { Movie } from '../types';
-import { getTrendingMovies } from '../services/tmdbService';
-import { MovieCard } from '../components/MovieCard';
-import { Loader2, TrendingUp, AlertCircle } from 'lucide-react';
+import { MediaItem, MediaType } from '../types';
+import { getTrending, searchMedia } from '../services/tmdbService';
+import { MediaCard } from '../components/MovieCard';
+import { Loader2, TrendingUp, AlertCircle, Film, Tv } from 'lucide-react';
 
 interface HomePageProps {
-  onMovieClick: (id: number) => void;
-  searchResults: Movie[] | null;
+  onMediaClick: (id: number, type: MediaType) => void;
+  searchResults: MediaItem[] | null;
 }
 
-export const HomePage: React.FC<HomePageProps> = ({ onMovieClick, searchResults }) => {
-  const [trending, setTrending] = useState<Movie[]>([]);
+export const HomePage: React.FC<HomePageProps> = ({ onMediaClick, searchResults }) => {
+  const [activeTab, setActiveTab] = useState<MediaType>('movie');
+  const [trending, setTrending] = useState<MediaItem[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Fetch trending when tab changes
   useEffect(() => {
     const fetchTrending = async () => {
       setLoading(true);
-      const movies = await getTrendingMovies();
-      setTrending(movies);
+      const items = await getTrending(activeTab);
+      setTrending(items);
       setLoading(false);
     };
     fetchTrending();
-  }, []);
+  }, [activeTab]);
 
   if (loading && !searchResults) {
     return (
@@ -44,8 +46,8 @@ export const HomePage: React.FC<HomePageProps> = ({ onMovieClick, searchResults 
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-            {searchResults.map(movie => (
-              <MovieCard key={movie.id} movie={movie} onClick={onMovieClick} />
+            {searchResults.map(item => (
+              <MediaCard key={item.id} item={item} onClick={onMediaClick} />
             ))}
           </div>
         )}
@@ -55,7 +57,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onMovieClick, searchResults 
 
   return (
     <div className="space-y-12 pb-12">
-      {/* Hero Section using the first trending movie */}
+      {/* Hero Section using the first trending item */}
       {trending.length > 0 && (
         <div className="relative w-full h-[500px] md:h-[600px]">
           <div className="absolute inset-0">
@@ -78,13 +80,16 @@ export const HomePage: React.FC<HomePageProps> = ({ onMovieClick, searchResults 
                     <TrendingUp size={18} />
                     {trending[0].vote_average.toFixed(1)} امتیاز
                   </span>
-                  <span>{trending[0].release_date.split('-')[0]}</span>
+                  <span>{trending[0].release_date?.split('-')[0]}</span>
+                  <span className="bg-white/20 px-2 py-0.5 rounded text-xs uppercase tracking-wide border border-white/10">
+                    {trending[0].type === 'movie' ? 'فیلم' : 'سریال'}
+                  </span>
                </div>
                <p className="text-gray-300 line-clamp-3 text-lg leading-relaxed shadow-black drop-shadow-sm">
                  {trending[0].overview}
                </p>
                <div className="pt-4 flex gap-4">
-                 <button onClick={() => onMovieClick(trending[0].id)} className="bg-filmento-yellow hover:bg-yellow-500 text-black font-bold px-8 py-3 rounded text-lg transition">
+                 <button onClick={() => onMediaClick(trending[0].id, trending[0].type)} className="bg-filmento-yellow hover:bg-yellow-500 text-black font-bold px-8 py-3 rounded text-lg transition">
                    اطلاعات بیشتر
                  </button>
                </div>
@@ -93,18 +98,39 @@ export const HomePage: React.FC<HomePageProps> = ({ onMovieClick, searchResults 
         </div>
       )}
 
-      {/* Trending List */}
+      {/* Main Content Area */}
       <div className="max-w-7xl mx-auto px-4">
+        
+        {/* Toggle Tabs */}
+        <div className="flex items-center gap-4 mb-8">
+            <button 
+                onClick={() => setActiveTab('movie')}
+                className={`flex items-center gap-2 px-6 py-2 rounded-full transition-all ${activeTab === 'movie' ? 'bg-white text-black font-bold' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
+            >
+                <Film size={18} />
+                فیلم‌ها
+            </button>
+            <button 
+                onClick={() => setActiveTab('tv')}
+                className={`flex items-center gap-2 px-6 py-2 rounded-full transition-all ${activeTab === 'tv' ? 'bg-white text-black font-bold' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
+            >
+                <Tv size={18} />
+                سریال‌ها
+            </button>
+        </div>
+
         <div className="flex items-center gap-2 mb-6 border-l-4 border-filmento-yellow pl-4">
-            <h2 className="text-2xl font-bold text-white">محبوب‌ترین‌های هفته</h2>
+            <h2 className="text-2xl font-bold text-white">
+                {activeTab === 'movie' ? 'برترین فیلم‌های هفته' : 'برترین سریال‌های هفته'}
+            </h2>
         </div>
         
         {/* Horizontal Scroll Container */}
         <div className="relative">
             <div className="flex overflow-x-auto gap-4 pb-6 scrollbar-hide snap-x">
-                {trending.map(movie => (
-                    <div key={movie.id} className="snap-start">
-                        <MovieCard movie={movie} onClick={onMovieClick} />
+                {trending.map(item => (
+                    <div key={item.id} className="snap-start">
+                        <MediaCard item={item} onClick={onMediaClick} />
                     </div>
                 ))}
             </div>

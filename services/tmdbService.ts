@@ -1,4 +1,4 @@
-import { Movie, TmdbResponse } from '../types';
+import { MediaItem, TmdbResponse, TmdbMovieRaw, TmdbTvRaw, MediaType } from '../types';
 
 const BASE_URL = 'https://api.themoviedb.org/3';
 const LANGUAGE = 'fa-IR'; // Persian language
@@ -33,75 +33,96 @@ const fetchFromTmdb = async <T>(endpoint: string, params: Record<string, string>
   return response.json();
 };
 
-// --- Mock Data for Demo when no key is present ---
-const MOCK_MOVIES: Movie[] = [
+// --- Normalization Helpers ---
+
+const normalizeMovie = (movie: TmdbMovieRaw): MediaItem => ({
+  ...movie,
+  type: 'movie',
+  release_date: movie.release_date || '',
+});
+
+const normalizeTv = (tv: TmdbTvRaw): MediaItem => ({
+  id: tv.id,
+  type: 'tv',
+  title: tv.name,
+  original_title: tv.original_name,
+  overview: tv.overview,
+  poster_path: tv.poster_path,
+  backdrop_path: tv.backdrop_path,
+  release_date: tv.first_air_date || '',
+  vote_average: tv.vote_average,
+  vote_count: tv.vote_count,
+  genre_ids: tv.genre_ids,
+});
+
+// --- Mock Data ---
+const MOCK_MEDIA: MediaItem[] = [
   {
-    id: 27205,
-    title: "تلقین (دمو)",
-    original_title: "Inception",
-    overview: "دزد ماهری که تخصصش دزدیدن اسرار ارزشمند از اعماق ناخودآگاه افراد در خواب است، این بار ماموریتی غیرممکن دریافت می‌کند...",
-    poster_path: "/9gk7admal4zl67Yrxio2DI12qKA.jpg",
-    backdrop_path: "/s3TBrRGB1jav7loZ1Gj9t7kGWNL.jpg",
-    release_date: "2010-07-15",
-    vote_average: 8.8,
-    vote_count: 35000,
-    genre_ids: [28, 878, 12]
+    id: 27205, type: 'movie', title: "تلقین (دمو)", original_title: "Inception",
+    overview: "دزد ماهری که تخصصش دزدیدن اسرار ارزشمند از اعماق ناخودآگاه افراد در خواب است...",
+    poster_path: "/9gk7admal4zl67Yrxio2DI12qKA.jpg", backdrop_path: "/s3TBrRGB1jav7loZ1Gj9t7kGWNL.jpg",
+    release_date: "2010-07-15", vote_average: 8.8, vote_count: 35000
   },
   {
-    id: 157336,
-    title: "میان‌ستاره‌ای (دمو)",
-    original_title: "Interstellar",
-    overview: "گروهی از کاشفان با استفاده از یک کرم‌چاله که به تازگی کشف شده، سفر فضایی انسان را فراتر از محدودیت‌های قبلی می‌برند...",
-    poster_path: "/gEU2QniL6E8ahEoXxf9uPjqJDY9.jpg",
-    backdrop_path: "/xJHokMBLlb5Kd0BLWOxaz5ipfqw.jpg",
-    release_date: "2014-11-05",
-    vote_average: 8.7,
-    vote_count: 33000,
-    genre_ids: [12, 18, 878]
-  },
-  {
-    id: 155,
-    title: "شوالیه تاریکی (دمو)",
-    original_title: "The Dark Knight",
-    overview: "بتمن با کمک ستوان جیم گوردون و دادستان هاروی دنت، شروع به نابودی سازمان‌های تبهکاری در گاتهام می‌کند...",
-    poster_path: "/qJ2tW6WMUDux911r6m7haRef0WH.jpg",
-    backdrop_path: "/nMKdUUepR0i5zn0y1T4CsSB5chy.jpg",
-    release_date: "2008-07-16",
-    vote_average: 8.5,
-    vote_count: 31000,
-    genre_ids: [18, 28, 80, 53]
+    id: 1399, type: 'tv', title: "بازی تاج و تخت (دمو)", original_title: "Game of Thrones",
+    overview: "هفت خاندان اشرافی برای کنترل سرزمین افسانه‌ای وستروس می‌جنگند...",
+    poster_path: "/1XS1oqL89opfnbGw83trg95trUR.jpg", backdrop_path: "/2OMB0ynKlyIenMJt85r4bJjFStD.jpg",
+    release_date: "2011-04-17", vote_average: 8.4, vote_count: 22000
   }
 ];
 
-export const getTrendingMovies = async (): Promise<Movie[]> => {
+// --- API Calls ---
+
+export const getTrending = async (type: MediaType): Promise<MediaItem[]> => {
   try {
-    const data = await fetchFromTmdb<TmdbResponse<Movie>>('/trending/movie/week');
-    return data.results;
+    const endpoint = type === 'movie' ? '/trending/movie/week' : '/trending/tv/week';
+    const data = await fetchFromTmdb<TmdbResponse<any>>(endpoint);
+    
+    return data.results.map((item: any) => 
+      type === 'movie' ? normalizeMovie(item) : normalizeTv(item)
+    );
   } catch (error) {
-    if ((error as Error).message === 'MISSING_KEY') return MOCK_MOVIES;
+    if ((error as Error).message === 'MISSING_KEY') return MOCK_MEDIA.filter(m => m.type === type);
     console.error("Failed to fetch trending:", error);
     return [];
   }
 };
 
-export const searchMovies = async (query: string): Promise<Movie[]> => {
+export const searchMedia = async (query: string): Promise<MediaItem[]> => {
   try {
     if (!query) return [];
-    const data = await fetchFromTmdb<TmdbResponse<Movie>>('/search/movie', { query });
-    return data.results;
+    // Multi-search includes people, so we prefer specific endpoints or filtering
+    // Let's search both and combine for a better "Simulated unified search" or just use multi
+    const data = await fetchFromTmdb<TmdbResponse<any>>('/search/multi', { query });
+    
+    return data.results
+      .filter((item: any) => item.media_type === 'movie' || item.media_type === 'tv')
+      .map((item: any) => item.media_type === 'movie' ? normalizeMovie(item) : normalizeTv(item));
+
   } catch (error) {
     console.error("Failed to search:", error);
     return [];
   }
 };
 
-export const getMovieDetails = async (id: number): Promise<Movie | null> => {
+export const getMediaDetails = async (id: number, type: MediaType): Promise<MediaItem | null> => {
   try {
-    const data = await fetchFromTmdb<Movie>(`/movie/${id}`, { append_to_response: 'credits' });
-    return data;
+    const endpoint = type === 'movie' ? `/movie/${id}` : `/tv/${id}`;
+    const data = await fetchFromTmdb<any>(endpoint, { append_to_response: 'credits' });
+    
+    // Normalize detail response which is slightly different from list response but close enough for our props
+    const base = type === 'movie' ? normalizeMovie(data) : normalizeTv(data);
+    
+    // Add detail specific fields
+    base.genres = data.genres;
+    if (type === 'movie') base.runtime = data.runtime;
+    if (type === 'tv') base.number_of_seasons = data.number_of_seasons;
+    base.credits = data.credits;
+
+    return base;
   } catch (error) {
     if ((error as Error).message === 'MISSING_KEY') {
-        const mock = MOCK_MOVIES.find(m => m.id === id);
+        const mock = MOCK_MEDIA.find(m => m.id === id && m.type === type);
         return mock || null;
     }
     console.error("Failed to fetch details:", error);

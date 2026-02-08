@@ -1,23 +1,51 @@
 import React from 'react';
-import { Star, Play } from 'lucide-react';
-import { Movie } from '../types';
+import { Star, Play, Check, Bookmark, Plus } from 'lucide-react';
+import { MediaItem } from '../types';
 import { getImageUrl } from '../services/tmdbService';
+import { useAuth } from '../context/AuthContext';
 
-interface MovieCardProps {
-  movie: Movie;
-  onClick: (id: number) => void;
+interface MediaCardProps {
+  item: MediaItem;
+  onClick: (id: number, type: 'movie' | 'tv') => void;
 }
 
-export const MovieCard: React.FC<MovieCardProps> = ({ movie, onClick }) => {
+export const MediaCard: React.FC<MediaCardProps> = ({ item, onClick }) => {
+  const { user, isInWatchlist, isWatched, toggleWatchlist, toggleWatched } = useAuth();
+
+  const inWatchlist = isInWatchlist(item.id);
+  const watched = isWatched(item.id);
+
+  const handleAction = (e: React.MouseEvent, action: () => void) => {
+    e.stopPropagation();
+    if (!user) {
+        // Could trigger login toast
+        alert("لطفا ابتدا وارد شوید");
+        return;
+    }
+    action();
+  };
+
   return (
     <div 
-      className="bg-filmento-card rounded-lg overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer group w-[160px] sm:w-[200px] flex-shrink-0"
-      onClick={() => onClick(movie.id)}
+      className="bg-filmento-card rounded-lg overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer group w-[160px] sm:w-[200px] flex-shrink-0 relative"
+      onClick={() => onClick(item.id, item.type)}
     >
+      {/* Type Badge */}
+      <div className="absolute top-2 right-2 z-20 bg-black/60 backdrop-blur-sm text-white text-[10px] px-2 py-0.5 rounded uppercase font-bold tracking-wider">
+        {item.type === 'movie' ? 'سینمایی' : 'سریال'}
+      </div>
+
+      {/* Watched Overlay Badge */}
+      {watched && (
+        <div className="absolute top-2 left-2 z-20 bg-green-600 text-white p-1 rounded-full shadow-lg">
+            <Check size={12} strokeWidth={4} />
+        </div>
+      )}
+
       <div className="relative aspect-[2/3] overflow-hidden">
         <img 
-          src={getImageUrl(movie.poster_path)} 
-          alt={movie.title} 
+          src={getImageUrl(item.poster_path)} 
+          alt={item.title} 
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
           loading="lazy"
         />
@@ -26,21 +54,35 @@ export const MovieCard: React.FC<MovieCardProps> = ({ movie, onClick }) => {
         </div>
       </div>
       
-      <div className="p-3 flex flex-col h-32 justify-between">
+      <div className="p-3 flex flex-col h-auto justify-between">
         <div>
             <div className="flex items-center gap-1 text-gray-400 mb-1 text-xs">
                 <Star size={14} className="text-filmento-yellow" fill="#f5c518" />
-                <span className="text-gray-200 font-bold">{movie.vote_average.toFixed(1)}</span>
-                <span className="text-gray-500">({movie.vote_count})</span>
+                <span className="text-gray-200 font-bold">{item.vote_average.toFixed(1)}</span>
+                <span className="text-gray-500">({item.vote_count})</span>
             </div>
-            <h3 className="font-bold text-white text-sm line-clamp-2 leading-snug group-hover:text-filmento-yellow transition-colors">
-            {movie.title}
+            <h3 className="font-bold text-white text-sm line-clamp-2 leading-snug group-hover:text-filmento-yellow transition-colors min-h-[2.5em]">
+            {item.title}
             </h3>
         </div>
         
-        <button className="w-full mt-2 bg-gray-800 hover:bg-gray-700 text-filmento-yellow text-xs font-bold py-1.5 rounded transition-colors flex items-center justify-center gap-1">
-           <span className="text-xl leading-none">+</span> لیست تماشا
-        </button>
+        {/* Actions */}
+        <div className="flex gap-2 mt-3">
+             <button 
+                onClick={(e) => handleAction(e, () => toggleWatchlist(item))}
+                className={`flex-1 py-1.5 rounded flex items-center justify-center transition-colors ${inWatchlist ? 'bg-filmento-yellow text-black' : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'}`}
+                title="افزودن به لیست تماشا"
+             >
+                {inWatchlist ? <Bookmark fill="currentColor" size={16} /> : <Plus size={16} />}
+             </button>
+             <button 
+                onClick={(e) => handleAction(e, () => toggleWatched(item))}
+                className={`flex-1 py-1.5 rounded flex items-center justify-center transition-colors ${watched ? 'bg-green-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'}`}
+                title="دیده شده"
+             >
+                <Check size={16} strokeWidth={3} />
+             </button>
+        </div>
       </div>
     </div>
   );

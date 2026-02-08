@@ -1,42 +1,50 @@
 import React, { useState, useEffect } from 'react';
 import { Navbar } from './components/Navbar';
 import { HomePage } from './pages/HomePage';
-import { MovieDetailsPage } from './pages/MovieDetailsPage';
-import { searchMovies, setTmdbApiKey, getTmdbApiKey } from './services/tmdbService';
-import { Movie } from './types';
+import { MediaDetailsPage } from './pages/MovieDetailsPage';
+import { LoginPage } from './pages/LoginPage';
+import { ProfilePage } from './pages/ProfilePage';
+import { searchMedia, setTmdbApiKey, getTmdbApiKey } from './services/tmdbService';
+import { MediaItem, MediaType } from './types';
 import { X, Save, AlertTriangle, Settings } from 'lucide-react';
 import { GeminiAssistant } from './components/GeminiAssistant';
+import { AuthProvider, useAuth } from './context/AuthContext';
 
-function App() {
-  const [currentView, setCurrentView] = useState<'home' | 'details'>('home');
-  const [selectedMovieId, setSelectedMovieId] = useState<number | null>(null);
-  const [searchResults, setSearchResults] = useState<Movie[] | null>(null);
-  
-  // Settings / API Key Modal State
+// Inner App Component to use the Auth Context
+const FilmentoApp = () => {
+  const [currentView, setCurrentView] = useState<'home' | 'details' | 'login' | 'profile'>('home');
+  const [selectedMedia, setSelectedMedia] = useState<{id: number, type: MediaType} | null>(null);
+  const [searchResults, setSearchResults] = useState<MediaItem[] | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [hasKey, setHasKey] = useState(false);
+  
+  const { user, logout } = useAuth();
 
   useEffect(() => {
     const key = getTmdbApiKey();
     if (key) {
       setHasKey(true);
       setApiKeyInput(key);
-    } else {
-        // Automatically open settings if no key (optional UX choice, kept subtle here)
-        // setIsSettingsOpen(true);
     }
   }, []);
 
-  const handleMovieClick = (id: number) => {
-    setSelectedMovieId(id);
+  const handleMediaClick = (id: number, type: MediaType) => {
+    setSelectedMedia({ id, type });
     setCurrentView('details');
     window.scrollTo(0, 0);
   };
 
-  const handleBackToHome = () => {
-    setCurrentView('home');
-    setSelectedMovieId(null);
+  const handleNavigation = (page: string) => {
+      if (page === 'home') {
+          setSearchResults(null);
+          setCurrentView('home');
+      } else if (page === 'login') {
+          setCurrentView('login');
+      } else if (page === 'profile') {
+          setCurrentView('profile');
+      }
+      window.scrollTo(0, 0);
   };
 
   const handleSearch = async (query: string) => {
@@ -45,9 +53,9 @@ function App() {
       setCurrentView('home');
       return;
     }
-    const results = await searchMovies(query);
+    const results = await searchMedia(query);
     setSearchResults(results);
-    setCurrentView('home'); // Ensure we are on home view to see results
+    setCurrentView('home');
     window.scrollTo(0, 0);
   };
 
@@ -55,8 +63,27 @@ function App() {
     setTmdbApiKey(apiKeyInput);
     setHasKey(!!apiKeyInput);
     setIsSettingsOpen(false);
-    // Reload page to refresh data fetching with new key if needed, or trigger refetch
     window.location.reload();
+  };
+
+  const renderContent = () => {
+    switch (currentView) {
+        case 'login':
+            return <LoginPage onLoginSuccess={() => setCurrentView('home')} onBack={() => setCurrentView('home')} />;
+        case 'profile':
+            return <ProfilePage onMediaClick={handleMediaClick} onLogout={() => { logout(); setCurrentView('home'); }} />;
+        case 'details':
+            return selectedMedia ? (
+                <MediaDetailsPage 
+                    mediaId={selectedMedia.id} 
+                    mediaType={selectedMedia.type}
+                    onBack={() => setCurrentView('home')} 
+                />
+            ) : null;
+        case 'home':
+        default:
+            return <HomePage onMediaClick={handleMediaClick} searchResults={searchResults} />;
+    }
   };
 
   return (
@@ -64,21 +91,15 @@ function App() {
       <Navbar 
         onSearch={handleSearch} 
         onOpenSettings={() => setIsSettingsOpen(true)}
+        onNavigate={handleNavigation}
       />
 
       <main>
-        {currentView === 'home' ? (
-          <HomePage onMovieClick={handleMovieClick} searchResults={searchResults} />
-        ) : (
-          <MovieDetailsPage 
-            movieId={selectedMovieId!} 
-            onBack={handleBackToHome} 
-          />
-        )}
+        {renderContent()}
       </main>
 
-      {/* Global AI Assistant on Home Page (Page specific one is in MovieDetails) */}
-      {currentView === 'home' && <GeminiAssistant />}
+      {/* Global AI Assistant on Home/Profile */}
+      {currentView !== 'details' && currentView !== 'login' && <GeminiAssistant />}
 
       {/* Footer */}
       <footer className="bg-filmento-card border-t border-gray-800 text-center py-8 text-gray-500 mt-12">
@@ -151,6 +172,15 @@ function App() {
       )}
     </div>
   );
+};
+
+// Root Component wrapping AuthProvider
+function App() {
+    return (
+        <AuthProvider>
+            <FilmentoApp />
+        </AuthProvider>
+    )
 }
 
 export default App;
