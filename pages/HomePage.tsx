@@ -1,29 +1,60 @@
 import React, { useEffect, useState } from 'react';
-import { MediaItem, MediaType } from '../types';
-import { getTrending, searchMedia } from '../services/tmdbService';
+import { MediaItem, MediaType, Genre } from '../types';
+import { getTrending, getTopRated, getUpcoming, getGenresList } from '../services/tmdbService';
 import { MediaCard } from '../components/MovieCard';
-import { Loader2, TrendingUp, AlertCircle, Film, Tv } from 'lucide-react';
+import { Loader2, TrendingUp, AlertCircle, Film, Tv, ChevronLeft, ChevronRight, Star, Calendar, ArrowRight, Play } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 interface HomePageProps {
   onMediaClick: (id: number, type: MediaType) => void;
+  onGenreClick: (genre: Genre, type: MediaType) => void;
   searchResults: MediaItem[] | null;
 }
 
-export const HomePage: React.FC<HomePageProps> = ({ onMediaClick, searchResults }) => {
-  const [activeTab, setActiveTab] = useState<MediaType>('movie');
+export const HomePage: React.FC<HomePageProps> = ({ onMediaClick, onGenreClick, searchResults }) => {
   const [trending, setTrending] = useState<MediaItem[]>([]);
+  const [topRated, setTopRated] = useState<MediaItem[]>([]);
+  const [upcoming, setUpcoming] = useState<MediaItem[]>([]);
+  const [genres, setGenres] = useState<Genre[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Hero Carousel State
+  const [heroIndex, setHeroIndex] = useState(0);
 
-  // Fetch trending when tab changes
+  const { lists, user } = useAuth();
+
+  // Fetch Data
   useEffect(() => {
-    const fetchTrending = async () => {
+    const fetchData = async () => {
       setLoading(true);
-      const items = await getTrending(activeTab);
-      setTrending(items);
-      setLoading(false);
+      try {
+        const [trendData, topData, upData, genreData] = await Promise.all([
+            getTrending('movie'),
+            getTopRated('movie'),
+            getUpcoming(),
+            getGenresList('movie')
+        ]);
+        setTrending(trendData);
+        setTopRated(topData);
+        setUpcoming(upData);
+        setGenres(genreData);
+      } catch (e) {
+          console.error(e);
+      } finally {
+        setLoading(false);
+      }
     };
-    fetchTrending();
-  }, [activeTab]);
+    fetchData();
+  }, []);
+
+  // Carousel Auto Rotation
+  useEffect(() => {
+    if (trending.length === 0) return;
+    const interval = setInterval(() => {
+      setHeroIndex((prev) => (prev + 1) % Math.min(5, trending.length));
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [trending]);
 
   if (loading && !searchResults) {
     return (
@@ -33,7 +64,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onMediaClick, searchResults 
     );
   }
 
-  // Display Search Results if active
+  // --- Search Results View ---
   if (searchResults) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-8">
@@ -55,109 +86,197 @@ export const HomePage: React.FC<HomePageProps> = ({ onMediaClick, searchResults 
     );
   }
 
+  const heroItems = trending.slice(0, 5);
+
   return (
-    <div className="space-y-12 pb-12">
-      {/* Hero Section using the first trending item */}
-      {trending.length > 0 && (
-        <div className="relative w-full h-[500px] md:h-[600px]">
-          <div className="absolute inset-0">
-             <img 
-               src={`https://image.tmdb.org/t/p/original${trending[0].backdrop_path}`}
-               alt={trending[0].title}
-               className="w-full h-full object-cover"
-             />
-             <div className="absolute inset-0 bg-gradient-to-t from-filmento-dark via-filmento-dark/60 to-transparent" />
-             <div className="absolute inset-0 bg-gradient-to-r from-filmento-dark via-transparent to-transparent" />
+    <div className="space-y-12 pb-12 overflow-x-hidden">
+      
+      {/* 1. Dynamic Hero Slider */}
+      {heroItems.length > 0 && (
+        <div className="relative w-full h-[550px] md:h-[700px] overflow-hidden group">
+          {heroItems.map((item, index) => (
+             <div 
+                key={item.id}
+                className={`absolute inset-0 transition-opacity duration-1000 ${index === heroIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
+             >
+                <img 
+                    src={`https://image.tmdb.org/t/p/original${item.backdrop_path}`}
+                    alt={item.title}
+                    className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#121212] via-[#121212]/50 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-r from-[#121212] via-[#121212]/30 to-transparent" />
+
+                <div className="absolute inset-0 flex items-end pb-20 md:pb-24">
+                     <div className="max-w-7xl mx-auto px-4 w-full">
+                        <div className="max-w-3xl animate-in slide-in-from-bottom-10 fade-in duration-700">
+                             <div className="flex items-center gap-2 mb-2">
+                                <span className="bg-filmento-yellow text-black text-xs font-bold px-2 py-0.5 rounded uppercase">
+                                    {index === 0 ? 'ترند #1' : 'پیشنهاد ویژه'}
+                                </span>
+                                <span className="flex items-center gap-1 text-yellow-400 text-sm font-bold">
+                                    <Star size={14} fill="currentColor" /> {item.vote_average.toFixed(1)}
+                                </span>
+                             </div>
+
+                             <h1 className="text-4xl md:text-6xl font-bold text-white mb-2 leading-tight" dir="ltr">
+                                 {item.original_title}
+                             </h1>
+                             {item.title !== item.original_title && (
+                                <h2 className="text-2xl md:text-3xl text-gray-300 font-bold mb-4">{item.title}</h2>
+                             )}
+                             
+                             <p className="text-gray-200 text-lg line-clamp-2 md:line-clamp-3 mb-6 max-w-2xl leading-relaxed">
+                                 {item.overview}
+                             </p>
+                             
+                             <div className="flex items-center gap-4">
+                                 <button 
+                                    onClick={() => onMediaClick(item.id, item.type)}
+                                    className="bg-filmento-yellow text-black font-bold px-8 py-3.5 rounded-lg flex items-center gap-2 hover:bg-yellow-400 transition transform hover:scale-105"
+                                 >
+                                     <Play fill="black" size={20} />
+                                     تماشا کنید
+                                 </button>
+                                 <button 
+                                    onClick={() => onMediaClick(item.id, item.type)}
+                                    className="bg-white/10 backdrop-blur-md text-white font-bold px-6 py-3.5 rounded-lg hover:bg-white/20 transition border border-white/20"
+                                 >
+                                     اطلاعات بیشتر
+                                 </button>
+                             </div>
+                        </div>
+                     </div>
+                </div>
+             </div>
+          ))}
+
+          {/* Slider Controls */}
+          <div className="absolute bottom-8 right-4 md:right-12 z-20 flex gap-2">
+             <button onClick={() => setHeroIndex((prev) => (prev - 1 + heroItems.length) % heroItems.length)} className="p-2 bg-black/50 text-white rounded-full hover:bg-filmento-yellow hover:text-black transition border border-white/10">
+                 <ChevronRight size={20} />
+             </button>
+             <button onClick={() => setHeroIndex((prev) => (prev + 1) % heroItems.length)} className="p-2 bg-black/50 text-white rounded-full hover:bg-filmento-yellow hover:text-black transition border border-white/10">
+                 <ChevronLeft size={20} />
+             </button>
           </div>
           
-          <div className="relative z-10 h-full max-w-7xl mx-auto px-4 flex items-end pb-16">
-            <div className="max-w-2xl space-y-4">
-               {/* Main Title (English) */}
-               <h1 className="text-4xl md:text-6xl font-bold text-white drop-shadow-md font-sans" dir="ltr">
-                 {trending[0].original_title}
-               </h1>
-               
-               {/* Secondary Title (Farsi) */}
-               {trending[0].title !== trending[0].original_title && (
-                   <h2 className="text-2xl md:text-3xl text-gray-200 drop-shadow-md font-bold">
-                       {trending[0].title}
-                   </h2>
-               )}
-
-               <div className="flex items-center gap-4 text-sm md:text-base text-gray-300">
-                  <span className="flex items-center gap-1 text-filmento-yellow">
-                    <TrendingUp size={18} />
-                    {trending[0].vote_average.toFixed(1)} امتیاز
-                  </span>
-                  <span>{trending[0].release_date?.split('-')[0]}</span>
-                  <span className="bg-white/20 px-2 py-0.5 rounded text-xs uppercase tracking-wide border border-white/10">
-                    {trending[0].type === 'movie' ? 'فیلم' : 'سریال'}
-                  </span>
-               </div>
-               <p className="text-gray-300 line-clamp-3 text-lg leading-relaxed shadow-black drop-shadow-sm">
-                 {trending[0].overview}
-               </p>
-               <div className="pt-4 flex gap-4">
-                 <button onClick={() => onMediaClick(trending[0].id, trending[0].type)} className="bg-filmento-yellow hover:bg-yellow-500 text-black font-bold px-8 py-3 rounded text-lg transition">
-                   اطلاعات بیشتر
-                 </button>
-               </div>
-            </div>
+          {/* Indicators */}
+          <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-20 flex gap-2">
+             {heroItems.map((_, idx) => (
+                 <button 
+                    key={idx}
+                    onClick={() => setHeroIndex(idx)}
+                    className={`h-1.5 rounded-full transition-all duration-300 ${idx === heroIndex ? 'w-8 bg-filmento-yellow' : 'w-2 bg-gray-500 hover:bg-gray-300'}`}
+                 />
+             ))}
           </div>
         </div>
       )}
 
-      {/* Main Content Area */}
-      <div className="max-w-7xl mx-auto px-4">
+      <div className="max-w-7xl mx-auto px-4 space-y-16">
         
-        {/* Toggle Tabs */}
-        <div className="flex items-center gap-4 mb-8">
-            <button 
-                onClick={() => setActiveTab('movie')}
-                className={`flex items-center gap-2 px-6 py-2 rounded-full transition-all ${activeTab === 'movie' ? 'bg-white text-black font-bold' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
-            >
-                <Film size={18} />
-                فیلم‌ها
-            </button>
-            <button 
-                onClick={() => setActiveTab('tv')}
-                className={`flex items-center gap-2 px-6 py-2 rounded-full transition-all ${activeTab === 'tv' ? 'bg-white text-black font-bold' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
-            >
-                <Tv size={18} />
-                سریال‌ها
-            </button>
+        {/* 2. Genre Pills */}
+        <div>
+           <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide mask-fade-right">
+              {genres.map(genre => (
+                  <button 
+                    key={genre.id}
+                    onClick={() => onGenreClick(genre, 'movie')}
+                    className="whitespace-nowrap px-6 py-2 bg-gray-800 border border-gray-700 rounded-full text-gray-300 hover:text-black hover:bg-filmento-yellow hover:border-filmento-yellow transition font-medium text-sm"
+                  >
+                      {genre.name}
+                  </button>
+              ))}
+           </div>
         </div>
 
-        <div className="flex items-center gap-2 mb-6 border-l-4 border-filmento-yellow pl-4">
-            <h2 className="text-2xl font-bold text-white">
-                {activeTab === 'movie' ? 'برترین فیلم‌های هفته' : 'برترین سریال‌های هفته'}
-            </h2>
-        </div>
-        
-        {/* Horizontal Scroll Container */}
-        <div className="relative">
-            <div className="flex overflow-x-auto gap-4 pb-6 scrollbar-hide snap-x">
-                {trending.map(item => (
-                    <div key={item.id} className="snap-start">
-                        <MediaCard item={item} onClick={onMediaClick} />
+        {/* 3. Watchlist Row (Personalization) */}
+        {user && lists.watchlist.length > 0 && (
+            <MediaRow title="ادامه تماشا (لیست شما)" items={lists.watchlist} onMediaClick={onMediaClick} icon={<Film />} />
+        )}
+
+        {/* 4. Content Rows */}
+        <MediaRow title="ترندهای هفته" items={trending} onMediaClick={onMediaClick} icon={<TrendingUp />} />
+
+        {/* 5. Spotlight Section */}
+        {upcoming.length > 0 && (
+            <div className="relative rounded-2xl overflow-hidden bg-gray-900 border border-gray-800">
+                <div className="flex flex-col md:flex-row">
+                    <div className="w-full md:w-2/3 h-64 md:h-[450px] relative">
+                         <img 
+                            src={`https://image.tmdb.org/t/p/original${upcoming[0].backdrop_path}`}
+                            className="w-full h-full object-cover"
+                            alt={upcoming[0].title}
+                         />
+                         <div className="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-l from-gray-900 via-transparent to-transparent" />
                     </div>
-                ))}
+                    <div className="w-full md:w-1/3 p-8 flex flex-col justify-center text-right z-10">
+                         <span className="text-filmento-yellow font-bold tracking-widest text-sm mb-2 uppercase">به زودی</span>
+                         <h2 className="text-3xl font-bold text-white mb-4 leading-tight">{upcoming[0].title}</h2>
+                         <p className="text-gray-400 mb-6 line-clamp-4 leading-relaxed text-sm text-justify">
+                             {upcoming[0].overview}
+                         </p>
+                         <div className="flex flex-col gap-3">
+                             <div className="flex items-center gap-2 text-sm text-gray-300">
+                                 <Calendar size={16} className="text-filmento-yellow" />
+                                 <span>تاریخ اکران: {upcoming[0].release_date}</span>
+                             </div>
+                             <button 
+                                onClick={() => onMediaClick(upcoming[0].id, upcoming[0].type)}
+                                className="mt-4 bg-gray-800 hover:bg-gray-700 text-white py-3 rounded-lg font-bold transition flex items-center justify-center gap-2"
+                             >
+                                 مشاهده جزئیات <ArrowRight size={18} />
+                             </button>
+                         </div>
+                    </div>
+                </div>
             </div>
-        </div>
+        )}
+
+        <MediaRow title="برترین‌های تاریخ سینما" items={topRated} onMediaClick={onMediaClick} icon={<Star />} />
+
+        <MediaRow title="به زودی در سینما" items={upcoming} onMediaClick={onMediaClick} icon={<Calendar />} />
+
       </div>
-      
-      {/* Fallback info for demo */}
+
+      {/* Demo Warning */}
       {trending.length > 0 && trending[0].title.includes("(دمو)") && (
-        <div className="max-w-7xl mx-auto px-4 mt-8">
+        <div className="max-w-7xl mx-auto px-4">
             <div className="bg-yellow-900/30 border border-yellow-700/50 p-4 rounded-lg flex items-start gap-3">
                 <AlertCircle className="text-filmento-yellow shrink-0 mt-1" />
                 <div className="text-sm text-gray-300">
                     <p className="font-bold text-white mb-1">حالت دمو فعال است</p>
-                    <p>برای مشاهده اطلاعات واقعی و به‌روز، لطفا کلید API سایت TMDB خود را در بخش تنظیمات وارد کنید.</p>
+                    <p>لطفا کلید API را وارد کنید.</p>
                 </div>
             </div>
         </div>
       )}
     </div>
   );
+};
+
+// Reusable Component for Rows
+const MediaRow: React.FC<{ title: string; items: MediaItem[]; onMediaClick: (id: number, type: MediaType) => void; icon?: React.ReactNode }> = ({ title, items, onMediaClick, icon }) => {
+    if (!items || items.length === 0) return null;
+
+    return (
+        <div className="relative group/row">
+            <div className="flex items-center gap-2 mb-4 px-2 border-r-4 border-filmento-yellow mr-2">
+                {icon && <span className="text-filmento-yellow">{icon}</span>}
+                <h3 className="text-xl font-bold text-white">{title}</h3>
+            </div>
+            
+            <div className="relative">
+                <div className="flex overflow-x-auto gap-4 pb-4 scrollbar-hide snap-x px-2">
+                    {items.map(item => (
+                        <div key={`${item.type}-${item.id}`} className="snap-start">
+                             <MediaCard item={item} onClick={onMediaClick} />
+                        </div>
+                    ))}
+                </div>
+                {/* Fade effect on sides could be added here */}
+            </div>
+        </div>
+    );
 };

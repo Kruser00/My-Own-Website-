@@ -100,7 +100,13 @@ const FilmentoApp = () => {
             ) : null;
         case 'home':
         default:
-            return <HomePage onMediaClick={handleMediaClick} searchResults={searchResults} />;
+            return (
+                <HomePage 
+                    onMediaClick={handleMediaClick} 
+                    onGenreClick={handleGenreClick}
+                    searchResults={searchResults} 
+                />
+            );
     }
   };
 

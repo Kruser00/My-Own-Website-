@@ -1,4 +1,4 @@
-import { MediaItem, TmdbResponse, TmdbMovieRaw, TmdbTvRaw, MediaType, Person, Review, Episode, Collection } from '../types';
+import { MediaItem, TmdbResponse, TmdbMovieRaw, TmdbTvRaw, MediaType, Person, Review, Episode, Collection, Genre } from '../types';
 
 const BASE_URL = 'https://api.themoviedb.org/3';
 const LANGUAGE = 'fa-IR'; // Persian language
@@ -90,6 +90,51 @@ export const getTrending = async (type: MediaType): Promise<MediaItem[]> => {
   }
 };
 
+export const getTopRated = async (type: MediaType): Promise<MediaItem[]> => {
+  try {
+    const endpoint = type === 'movie' ? '/movie/top_rated' : '/tv/top_rated';
+    const data = await fetchFromTmdb<TmdbResponse<any>>(endpoint);
+    return data.results.map((item: any) => type === 'movie' ? normalizeMovie(item) : normalizeTv(item));
+  } catch (error) {
+    if ((error as Error).message === 'MISSING_KEY') return [];
+    console.error("Failed to fetch top rated:", error);
+    return [];
+  }
+};
+
+export const getUpcoming = async (): Promise<MediaItem[]> => {
+  try {
+    // Only for movies usually
+    const data = await fetchFromTmdb<TmdbResponse<any>>('/movie/upcoming', { region: 'US' });
+    return data.results.map((item: any) => normalizeMovie(item));
+  } catch (error) {
+    if ((error as Error).message === 'MISSING_KEY') return [];
+    console.error("Failed to fetch upcoming:", error);
+    return [];
+  }
+};
+
+export const getGenresList = async (type: MediaType): Promise<Genre[]> => {
+    try {
+        const endpoint = type === 'movie' ? '/genre/movie/list' : '/genre/tv/list';
+        const data = await fetchFromTmdb<{ genres: Genre[] }>(endpoint);
+        return data.genres || [];
+    } catch (error) {
+        if ((error as Error).message === 'MISSING_KEY') {
+            return [
+                { id: 28, name: "اکشن" },
+                { id: 35, name: "کمدی" },
+                { id: 18, name: "درام" },
+                { id: 878, name: "علمی تخیلی" },
+                { id: 27, name: "وحشت" },
+                { id: 10749, name: "عاشقانه" }
+            ];
+        }
+        console.error("Failed to fetch genres:", error);
+        return [];
+    }
+};
+
 export const searchMedia = async (query: string): Promise<MediaItem[]> => {
   try {
     if (!query) return [];
@@ -100,6 +145,7 @@ export const searchMedia = async (query: string): Promise<MediaItem[]> => {
       .map((item: any) => item.media_type === 'movie' ? normalizeMovie(item) : normalizeTv(item));
 
   } catch (error) {
+    if ((error as Error).message === 'MISSING_KEY') return [];
     console.error("Failed to search:", error);
     return [];
   }
@@ -181,6 +227,7 @@ export const getPersonDetails = async (id: number): Promise<Person | null> => {
         };
 
     } catch (error) {
+        if ((error as Error).message === 'MISSING_KEY') return null;
         console.error("Failed to fetch person:", error);
         return null;
     }
@@ -201,6 +248,7 @@ export const getTmdbReviews = async (id: number, type: MediaType): Promise<Revie
             source: 'tmdb'
         }));
     } catch (error) {
+        if ((error as Error).message === 'MISSING_KEY') return [];
         console.error("Failed to fetch reviews:", error);
         return [];
     }
@@ -211,6 +259,7 @@ export const getSeasonDetails = async (tvId: number, seasonNumber: number): Prom
         const data = await fetchFromTmdb<any>(`/tv/${tvId}/season/${seasonNumber}`);
         return data.episodes || [];
     } catch (error) {
+        if ((error as Error).message === 'MISSING_KEY') return [];
         console.error("Failed to fetch season details:", error);
         return [];
     }
@@ -229,6 +278,7 @@ export const getCollectionDetails = async (collectionId: number): Promise<Collec
                 .sort((a: MediaItem, b: MediaItem) => new Date(a.release_date).getTime() - new Date(b.release_date).getTime())
         };
     } catch (error) {
+        if ((error as Error).message === 'MISSING_KEY') return null;
         console.error("Failed to fetch collection:", error);
         return null;
     }
@@ -246,6 +296,7 @@ export const discoverByGenre = async (genreId: number, type: MediaType): Promise
             type === 'movie' ? normalizeMovie(item) : normalizeTv(item)
         );
     } catch (error) {
+        if ((error as Error).message === 'MISSING_KEY') return [];
         console.error("Failed to discover by genre:", error);
         return [];
     }
