@@ -5,6 +5,8 @@ export interface MediaItem {
   type: MediaType;
   title: string;
   original_title: string;
+  english_title?: string;
+  english_overview?: string;
   overview: string;
   poster_path: string | null;
   backdrop_path: string | null;

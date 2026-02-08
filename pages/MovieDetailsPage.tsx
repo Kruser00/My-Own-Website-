@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { MediaItem, MediaType, Collection, Genre } from '../types';
 import { getMediaDetails, getImageUrl, getCollectionDetails } from '../services/tmdbService';
-import { Loader2, Calendar, Clock, Star, ArrowRight, Layers, PlayCircle, Film } from 'lucide-react';
+import { Loader2, Calendar, Clock, Star, ArrowRight, Layers, PlayCircle, Film, Play, Languages } from 'lucide-react';
 import { GeminiAssistant } from '../components/GeminiAssistant';
 import { useAuth } from '../context/AuthContext';
 import { PersonModal } from '../components/PersonModal';
@@ -31,6 +31,7 @@ export const MediaDetailsPage: React.FC<MediaDetailsPageProps> = ({
   const [collection, setCollection] = useState<Collection | null>(null);
   const [isVideoOpen, setIsVideoOpen] = useState(false);
   const [trailerKey, setTrailerKey] = useState<string | null>(null);
+  const [language, setLanguage] = useState<'fa' | 'en'>('fa');
 
   const { toggleWatchlist, toggleWatched, isInWatchlist, isWatched, user } = useAuth();
   
@@ -43,9 +44,10 @@ export const MediaDetailsPage: React.FC<MediaDetailsPageProps> = ({
       const data = await getMediaDetails(mediaId, mediaType);
       setItem(data);
 
-      // Find Trailer
+      // Find Trailer or Teaser
       if (data?.videos?.results) {
-          const trailer = data.videos.results.find(v => v.type === 'Trailer' && v.site === 'YouTube');
+          const trailer = data.videos.results.find((v: any) => v.type === 'Trailer' && v.site === 'YouTube') 
+                       || data.videos.results.find((v: any) => v.type === 'Teaser' && v.site === 'YouTube');
           if (trailer) setTrailerKey(trailer.key);
       }
 
@@ -103,6 +105,11 @@ export const MediaDetailsPage: React.FC<MediaDetailsPageProps> = ({
     عوامل: ${directors.map(d => d.name).join(', ')}
   `;
 
+  // Content Selection based on Language
+  const displayTitle = language === 'en' ? (item.english_title || item.original_title) : item.original_title;
+  const displayOverview = language === 'en' ? (item.english_overview || item.overview) : item.overview;
+  const showSubtitle = language === 'fa' && item.title !== item.original_title;
+
   return (
     <div className="min-h-screen bg-filmento-dark text-white pb-20">
       {/* Back Button */}
@@ -133,7 +140,7 @@ export const MediaDetailsPage: React.FC<MediaDetailsPageProps> = ({
                         onClick={() => setIsVideoOpen(true)}
                         className="bg-filmento-yellow/90 hover:bg-filmento-yellow text-black p-4 md:p-6 rounded-full shadow-2xl hover:scale-110 transition pointer-events-auto backdrop-blur-sm group"
                      >
-                         <PlayCircle size={48} md:size={64} strokeWidth={1.5} />
+                         <PlayCircle size={48} className="md:w-16 md:h-16" strokeWidth={1.5} />
                          <span className="sr-only">Play Trailer</span>
                      </button>
                  </div>
@@ -152,6 +159,16 @@ export const MediaDetailsPage: React.FC<MediaDetailsPageProps> = ({
                />
                
                <div className="mt-4 flex flex-col gap-2">
+                   {trailerKey && (
+                       <button 
+                          onClick={() => setIsVideoOpen(true)}
+                          className="w-full py-3 rounded font-bold border border-red-600 bg-red-600 text-white hover:bg-red-700 transition flex items-center justify-center gap-2 mb-2 shadow-lg shadow-red-900/20"
+                       >
+                           <Play size={20} fill="currentColor" />
+                           پخش تریلر
+                       </button>
+                   )}
+
                    <button 
                       onClick={() => handleAction(() => toggleWatchlist(item))}
                       className={`w-full py-2 rounded font-bold border transition ${inWatchlist ? 'bg-filmento-yellow text-black border-filmento-yellow' : 'bg-transparent text-white border-gray-600 hover:border-white'}`}
@@ -169,15 +186,36 @@ export const MediaDetailsPage: React.FC<MediaDetailsPageProps> = ({
 
             {/* Info */}
             <div className="flex-1 pt-4 md:pt-32 text-center md:text-right">
-              {/* Main Title (English) */}
-              <h1 className="text-3xl md:text-5xl font-bold mb-2 text-white font-sans" dir="ltr">{item.original_title}</h1>
               
-              {/* Secondary Title (Farsi) */}
-              {item.title !== item.original_title && (
+              {/* Language Toggle */}
+              <div className="flex items-center justify-center md:justify-start gap-4 mb-4">
+                  <div className="flex items-center bg-gray-800/80 rounded-full p-1 border border-gray-700">
+                      <button 
+                        onClick={() => setLanguage('fa')}
+                        className={`px-3 py-1 rounded-full text-xs font-bold transition ${language === 'fa' ? 'bg-filmento-yellow text-black' : 'text-gray-400 hover:text-white'}`}
+                      >
+                        فارسی
+                      </button>
+                      <button 
+                        onClick={() => setLanguage('en')}
+                        className={`px-3 py-1 rounded-full text-xs font-bold transition ${language === 'en' ? 'bg-filmento-yellow text-black' : 'text-gray-400 hover:text-white'}`}
+                      >
+                        English
+                      </button>
+                  </div>
+              </div>
+
+              {/* Main Title */}
+              <h1 className="text-3xl md:text-5xl font-bold mb-2 text-white font-sans" dir="ltr">
+                  {displayTitle}
+              </h1>
+              
+              {/* Secondary Title (Farsi Subtitle) */}
+              {showSubtitle && (
                    <h2 className="text-xl md:text-2xl text-gray-400 mb-6 font-bold">{item.title}</h2>
               )}
 
-              <div className="mb-8 flex justify-center md:justify-start">
+              <div className={`mb-8 flex justify-center md:justify-start ${!showSubtitle ? 'mt-4' : ''}`}>
                   <ScoreBoard tmdbScore={item.vote_average} voteCount={item.vote_count} />
               </div>
 
@@ -216,9 +254,15 @@ export const MediaDetailsPage: React.FC<MediaDetailsPageProps> = ({
               </div>
 
               <div className="max-w-3xl">
-                  <h3 className="text-xl font-bold mb-2 text-filmento-yellow">خلاصه داستان</h3>
-                  <p className="text-gray-300 leading-relaxed text-lg text-justify">
-                    {item.overview || "خلاصه‌ای برای این اثر ثبت نشده است."}
+                  <h3 className="text-xl font-bold mb-2 text-filmento-yellow flex items-center gap-2 justify-center md:justify-start">
+                    {language === 'fa' ? 'خلاصه داستان' : 'Synopsis'}
+                    {language === 'en' && <span className="text-xs font-normal text-gray-500 border border-gray-600 rounded px-1">EN</span>}
+                  </h3>
+                  <p 
+                    className={`text-gray-300 leading-relaxed text-lg text-justify ${language === 'en' ? 'text-left' : 'text-right'}`}
+                    dir={language === 'en' ? 'ltr' : 'rtl'}
+                  >
+                    {displayOverview || (language === 'fa' ? "خلاصه‌ای برای این اثر ثبت نشده است." : "No overview available.")}
                   </p>
               </div>
             </div>

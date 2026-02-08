@@ -61,13 +61,15 @@ const MOCK_MEDIA: MediaItem[] = [
     id: 27205, type: 'movie', title: "تلقین (دمو)", original_title: "Inception",
     overview: "دزد ماهری که تخصصش دزدیدن اسرار ارزشمند از اعماق ناخودآگاه افراد در خواب است...",
     poster_path: "/9gk7admal4zl67Yrxio2DI12qKA.jpg", backdrop_path: "/s3TBrRGB1jav7loZ1Gj9t7kGWNL.jpg",
-    release_date: "2010-07-15", vote_average: 8.8, vote_count: 35000
+    release_date: "2010-07-15", vote_average: 8.8, vote_count: 35000,
+    english_title: "Inception", english_overview: "Cobb, a skilled thief who commits corporate espionage by infiltrating the subconscious of his targets is offered a chance to regain his old life as payment for a task considered to be impossible: \"inception\", the implantation of another person's idea into a target's subconscious."
   },
   {
     id: 1399, type: 'tv', title: "بازی تاج و تخت (دمو)", original_title: "Game of Thrones",
     overview: "هفت خاندان اشرافی برای کنترل سرزمین افسانه‌ای وستروس می‌جنگند...",
     poster_path: "/1XS1oqL89opfnbGw83trg95trUR.jpg", backdrop_path: "/2OMB0ynKlyIenMJt85r4bJjFStD.jpg",
-    release_date: "2011-04-17", vote_average: 8.4, vote_count: 22000
+    release_date: "2011-04-17", vote_average: 8.4, vote_count: 22000,
+    english_title: "Game of Thrones", english_overview: "Seven noble families fight for control of the mythical land of Westeros. Friction between the houses leads to full-scale war. All while a very ancient evil awakens in the farthest north. Amidst the war, a neglected military order of misfits, the Night's Watch, is all that stands between the realms of men and icy horrors beyond."
   }
 ];
 
@@ -106,11 +108,23 @@ export const searchMedia = async (query: string): Promise<MediaItem[]> => {
 export const getMediaDetails = async (id: number, type: MediaType): Promise<MediaItem | null> => {
   try {
     const endpoint = type === 'movie' ? `/movie/${id}` : `/tv/${id}`;
-    // Fetch credits, videos, and recommendations in one go
+    // Fetch Farsi credits, videos, and recommendations in one go
     const data = await fetchFromTmdb<any>(endpoint, { append_to_response: 'credits,videos,recommendations' });
+
+    // Fetch English details separately for the toggle feature
+    let englishData: any = {};
+    try {
+        englishData = await fetchFromTmdb<any>(endpoint, { language: 'en-US' });
+    } catch (e) {
+        console.warn("Failed to fetch English details", e);
+    }
     
     const base = type === 'movie' ? normalizeMovie(data) : normalizeTv(data);
     
+    // Attach English data
+    base.english_title = type === 'movie' ? englishData.title : englishData.name;
+    base.english_overview = englishData.overview;
+
     base.genres = data.genres;
     if (type === 'movie') {
         base.runtime = data.runtime;
