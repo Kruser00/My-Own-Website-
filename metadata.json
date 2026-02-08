@@ -1,0 +1,5 @@
+{
+  "name": "Filmento",
+  "description": "A Farsi-language movie database application powered by TMDB and Gemini AI.",
+  "requestFramePermissions": []
+}
