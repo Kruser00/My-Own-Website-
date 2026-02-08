@@ -169,9 +169,14 @@ export const MediaDetailsPage: React.FC<MediaDetailsPageProps> = ({
 
             {/* Info */}
             <div className="flex-1 pt-4 md:pt-32 text-center md:text-right">
-              <h1 className="text-3xl md:text-5xl font-bold mb-2 text-white">{item.title}</h1>
-              <p className="text-gray-400 text-lg mb-6">{item.original_title}</p>
+              {/* Main Title (English) */}
+              <h1 className="text-3xl md:text-5xl font-bold mb-2 text-white font-sans" dir="ltr">{item.original_title}</h1>
               
+              {/* Secondary Title (Farsi) */}
+              {item.title !== item.original_title && (
+                   <h2 className="text-xl md:text-2xl text-gray-400 mb-6 font-bold">{item.title}</h2>
+              )}
+
               <div className="mb-8 flex justify-center md:justify-start">
                   <ScoreBoard tmdbScore={item.vote_average} voteCount={item.vote_count} />
               </div>

@@ -45,7 +45,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({ item, onClick }) => {
       <div className="relative aspect-[2/3] overflow-hidden">
         <img 
           src={getImageUrl(item.poster_path)} 
-          alt={item.title} 
+          alt={item.original_title} 
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
           loading="lazy"
         />
@@ -55,15 +55,24 @@ export const MediaCard: React.FC<MediaCardProps> = ({ item, onClick }) => {
       </div>
       
       <div className="p-3 flex flex-col h-auto justify-between">
-        <div>
+        <div className="min-h-[3.5em]">
             <div className="flex items-center gap-1 text-gray-400 mb-1 text-xs">
                 <Star size={14} className="text-filmento-yellow" fill="#f5c518" />
                 <span className="text-gray-200 font-bold">{item.vote_average.toFixed(1)}</span>
                 <span className="text-gray-500">({item.vote_count})</span>
             </div>
-            <h3 className="font-bold text-white text-sm line-clamp-2 leading-snug group-hover:text-filmento-yellow transition-colors min-h-[2.5em]">
-            {item.title}
+            
+            {/* Main Title (English/Original) */}
+            <h3 className="font-bold text-white text-sm line-clamp-1 leading-snug group-hover:text-filmento-yellow transition-colors" dir="ltr">
+            {item.original_title}
             </h3>
+
+            {/* Subtitle (Farsi) */}
+            {item.title && item.title !== item.original_title && (
+              <p className="text-xs text-gray-500 truncate mt-0.5 font-sans text-right" dir="rtl">
+                  {item.title}
+              </p>
+            )}
         </div>
         
         {/* Actions */}

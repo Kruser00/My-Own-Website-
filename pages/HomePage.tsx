@@ -72,9 +72,18 @@ export const HomePage: React.FC<HomePageProps> = ({ onMediaClick, searchResults 
           
           <div className="relative z-10 h-full max-w-7xl mx-auto px-4 flex items-end pb-16">
             <div className="max-w-2xl space-y-4">
-               <h1 className="text-4xl md:text-6xl font-bold text-white drop-shadow-md">
-                 {trending[0].title}
+               {/* Main Title (English) */}
+               <h1 className="text-4xl md:text-6xl font-bold text-white drop-shadow-md font-sans" dir="ltr">
+                 {trending[0].original_title}
                </h1>
+               
+               {/* Secondary Title (Farsi) */}
+               {trending[0].title !== trending[0].original_title && (
+                   <h2 className="text-2xl md:text-3xl text-gray-200 drop-shadow-md font-bold">
+                       {trending[0].title}
+                   </h2>
+               )}
+
                <div className="flex items-center gap-4 text-sm md:text-base text-gray-300">
                   <span className="flex items-center gap-1 text-filmento-yellow">
                     <TrendingUp size={18} />
