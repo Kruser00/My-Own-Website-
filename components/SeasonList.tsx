@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Season, Episode } from '../types';
 import { getSeasonDetails, getImageUrl } from '../services/tmdbService';
-import { ChevronDown, ChevronUp, Play, Clock, Calendar } from 'lucide-react';
+import { ChevronDown, ChevronUp, Play, Clock, Calendar, Star } from 'lucide-react';
 
 interface SeasonListProps {
   tvId: number;
@@ -90,7 +90,7 @@ export const SeasonList: React.FC<SeasonListProps> = ({ tvId, seasons }) => {
                                   <div className="flex items-center gap-3 text-xs text-gray-500 mb-2">
                                       <span className="flex items-center gap-1"><Calendar size={12}/> {ep.air_date}</span>
                                   </div>
-                                  <p className="text-sm text-gray-300 leading-relaxed line-clamp-2 md:line-clamp-3">
+                                  <p className="text-sm text-gray-300 leading-relaxed line-clamp-2 md:line-clamp-3" dir="auto">
                                       {ep.overview || "خلاصه‌ای ثبت نشده است."}
                                   </p>
                               </div>
@@ -112,7 +112,7 @@ export const SeasonList: React.FC<SeasonListProps> = ({ tvId, seasons }) => {
 
 const StarIcon = ({rating}: {rating: number}) => (
     <div className="flex items-center gap-1 text-filmento-yellow">
-        <span>★</span>
+        <Star size={12} fill="currentColor" />
         <span>{rating.toFixed(1)}</span>
     </div>
 );

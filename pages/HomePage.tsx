@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { MediaItem, MediaType, Genre } from '../types';
 import { getTrending, getTopRated, getUpcoming, getGenresList } from '../services/tmdbService';
 import { MediaCard } from '../components/MovieCard';
-import { Loader2, TrendingUp, AlertCircle, Film, Tv, ChevronLeft, ChevronRight, Star, Calendar, ArrowRight, Play } from 'lucide-react';
+import { Loader2, TrendingUp, AlertCircle, Film, Tv, ChevronLeft, ChevronRight, Star, Calendar, ArrowRight, Info } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 interface HomePageProps {
@@ -12,8 +12,10 @@ interface HomePageProps {
 }
 
 export const HomePage: React.FC<HomePageProps> = ({ onMediaClick, onGenreClick, searchResults }) => {
-  const [trending, setTrending] = useState<MediaItem[]>([]);
-  const [topRated, setTopRated] = useState<MediaItem[]>([]);
+  const [trendingMovies, setTrendingMovies] = useState<MediaItem[]>([]);
+  const [trendingTv, setTrendingTv] = useState<MediaItem[]>([]);
+  const [topRatedMovies, setTopRatedMovies] = useState<MediaItem[]>([]);
+  const [topRatedTv, setTopRatedTv] = useState<MediaItem[]>([]);
   const [upcoming, setUpcoming] = useState<MediaItem[]>([]);
   const [genres, setGenres] = useState<Genre[]>([]);
   const [loading, setLoading] = useState(true);
@@ -28,14 +30,18 @@ export const HomePage: React.FC<HomePageProps> = ({ onMediaClick, onGenreClick, 
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [trendData, topData, upData, genreData] = await Promise.all([
+        const [trendMovieData, trendTvData, topMovieData, topTvData, upData, genreData] = await Promise.all([
             getTrending('movie'),
+            getTrending('tv'),
             getTopRated('movie'),
+            getTopRated('tv'),
             getUpcoming(),
             getGenresList('movie')
         ]);
-        setTrending(trendData);
-        setTopRated(topData);
+        setTrendingMovies(trendMovieData);
+        setTrendingTv(trendTvData);
+        setTopRatedMovies(topMovieData);
+        setTopRatedTv(topTvData);
         setUpcoming(upData);
         setGenres(genreData);
       } catch (e) {
@@ -49,12 +55,12 @@ export const HomePage: React.FC<HomePageProps> = ({ onMediaClick, onGenreClick, 
 
   // Carousel Auto Rotation
   useEffect(() => {
-    if (trending.length === 0) return;
+    if (trendingMovies.length === 0) return;
     const interval = setInterval(() => {
-      setHeroIndex((prev) => (prev + 1) % Math.min(5, trending.length));
+      setHeroIndex((prev) => (prev + 1) % Math.min(5, trendingMovies.length));
     }, 8000);
     return () => clearInterval(interval);
-  }, [trending]);
+  }, [trendingMovies]);
 
   if (loading && !searchResults) {
     return (
@@ -86,7 +92,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onMediaClick, onGenreClick, 
     );
   }
 
-  const heroItems = trending.slice(0, 5);
+  const heroItems = trendingMovies.slice(0, 5);
 
   return (
     <div className="space-y-12 pb-12 overflow-x-hidden">
@@ -135,13 +141,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onMediaClick, onGenreClick, 
                                     onClick={() => onMediaClick(item.id, item.type)}
                                     className="bg-filmento-yellow text-black font-bold px-8 py-3.5 rounded-lg flex items-center gap-2 hover:bg-yellow-400 transition transform hover:scale-105"
                                  >
-                                     <Play fill="black" size={20} />
-                                     تماشا کنید
-                                 </button>
-                                 <button 
-                                    onClick={() => onMediaClick(item.id, item.type)}
-                                    className="bg-white/10 backdrop-blur-md text-white font-bold px-6 py-3.5 rounded-lg hover:bg-white/20 transition border border-white/20"
-                                 >
+                                     <Info size={20} />
                                      اطلاعات بیشتر
                                  </button>
                              </div>
@@ -196,8 +196,10 @@ export const HomePage: React.FC<HomePageProps> = ({ onMediaClick, onGenreClick, 
             <MediaRow title="ادامه تماشا (لیست شما)" items={lists.watchlist} onMediaClick={onMediaClick} icon={<Film />} />
         )}
 
-        {/* 4. Content Rows */}
-        <MediaRow title="ترندهای هفته" items={trending} onMediaClick={onMediaClick} icon={<TrendingUp />} />
+        {/* 4. Content Rows - Movies & TV */}
+        <MediaRow title="فیلم‌های ترند هفته" items={trendingMovies} onMediaClick={onMediaClick} icon={<TrendingUp />} />
+        
+        <MediaRow title="سریال‌های ترند هفته" items={trendingTv} onMediaClick={onMediaClick} icon={<Tv />} />
 
         {/* 5. Spotlight Section */}
         {upcoming.length > 0 && (
@@ -234,14 +236,16 @@ export const HomePage: React.FC<HomePageProps> = ({ onMediaClick, onGenreClick, 
             </div>
         )}
 
-        <MediaRow title="برترین‌های تاریخ سینما" items={topRated} onMediaClick={onMediaClick} icon={<Star />} />
+        <MediaRow title="برترین‌های سینما" items={topRatedMovies} onMediaClick={onMediaClick} icon={<Star />} />
+        
+        <MediaRow title="برترین سریال‌های تلویزیونی" items={topRatedTv} onMediaClick={onMediaClick} icon={<Tv />} />
 
         <MediaRow title="به زودی در سینما" items={upcoming} onMediaClick={onMediaClick} icon={<Calendar />} />
 
       </div>
 
       {/* Demo Warning */}
-      {trending.length > 0 && trending[0].title.includes("(دمو)") && (
+      {trendingMovies.length > 0 && trendingMovies[0].title.includes("(دمو)") && (
         <div className="max-w-7xl mx-auto px-4">
             <div className="bg-yellow-900/30 border border-yellow-700/50 p-4 rounded-lg flex items-start gap-3">
                 <AlertCircle className="text-filmento-yellow shrink-0 mt-1" />
@@ -275,7 +279,6 @@ const MediaRow: React.FC<{ title: string; items: MediaItem[]; onMediaClick: (id:
                         </div>
                     ))}
                 </div>
-                {/* Fade effect on sides could be added here */}
             </div>
         </div>
     );

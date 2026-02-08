@@ -27,7 +27,11 @@ const fetchFromTmdb = async <T>(endpoint: string, params: Record<string, string>
   const response = await fetch(`${BASE_URL}${endpoint}?${queryParams.toString()}`);
   
   if (!response.ok) {
-    throw new Error(`TMDB API Error: ${response.statusText}`);
+    // Treat invalid key (401) or Not Found (404) as missing key to trigger mock data fallback
+    if (response.status === 401 || response.status === 404) {
+        throw new Error('MISSING_KEY');
+    }
+    throw new Error(`TMDB API Error: ${response.status} ${response.statusText}`);
   }
 
   return response.json();
@@ -62,14 +66,24 @@ const MOCK_MEDIA: MediaItem[] = [
     overview: "دزد ماهری که تخصصش دزدیدن اسرار ارزشمند از اعماق ناخودآگاه افراد در خواب است...",
     poster_path: "/9gk7admal4zl67Yrxio2DI12qKA.jpg", backdrop_path: "/s3TBrRGB1jav7loZ1Gj9t7kGWNL.jpg",
     release_date: "2010-07-15", vote_average: 8.8, vote_count: 35000,
-    english_title: "Inception", english_overview: "Cobb, a skilled thief who commits corporate espionage by infiltrating the subconscious of his targets is offered a chance to regain his old life as payment for a task considered to be impossible: \"inception\", the implantation of another person's idea into a target's subconscious."
+    english_title: "Inception", english_overview: "Cobb, a skilled thief who commits corporate espionage by infiltrating the subconscious of his targets is offered a chance to regain his old life as payment for a task considered to be impossible: \"inception\", the implantation of another person's idea into a target's subconscious.",
+    videos: {
+        results: [
+            { id: '1', key: 'YoHD9XEInc0', name: 'Trailer', site: 'YouTube', type: 'Trailer', official: true }
+        ]
+    }
   },
   {
     id: 1399, type: 'tv', title: "بازی تاج و تخت (دمو)", original_title: "Game of Thrones",
     overview: "هفت خاندان اشرافی برای کنترل سرزمین افسانه‌ای وستروس می‌جنگند...",
     poster_path: "/1XS1oqL89opfnbGw83trg95trUR.jpg", backdrop_path: "/2OMB0ynKlyIenMJt85r4bJjFStD.jpg",
     release_date: "2011-04-17", vote_average: 8.4, vote_count: 22000,
-    english_title: "Game of Thrones", english_overview: "Seven noble families fight for control of the mythical land of Westeros. Friction between the houses leads to full-scale war. All while a very ancient evil awakens in the farthest north. Amidst the war, a neglected military order of misfits, the Night's Watch, is all that stands between the realms of men and icy horrors beyond."
+    english_title: "Game of Thrones", english_overview: "Seven noble families fight for control of the mythical land of Westeros. Friction between the houses leads to full-scale war. All while a very ancient evil awakens in the farthest north. Amidst the war, a neglected military order of misfits, the Night's Watch, is all that stands between the realms of men and icy horrors beyond.",
+    videos: {
+        results: [
+            { id: '2', key: 'KPLWWIOCOOQ', name: 'Trailer', site: 'YouTube', type: 'Trailer', official: true }
+        ]
+    }
   }
 ];
 
@@ -155,7 +169,11 @@ export const getMediaDetails = async (id: number, type: MediaType): Promise<Medi
   try {
     const endpoint = type === 'movie' ? `/movie/${id}` : `/tv/${id}`;
     // Fetch Farsi credits, videos, and recommendations in one go
-    const data = await fetchFromTmdb<any>(endpoint, { append_to_response: 'credits,videos,recommendations' });
+    // include_video_language='fa,en' ensures we get English trailers if Persian ones don't exist
+    const data = await fetchFromTmdb<any>(endpoint, { 
+        append_to_response: 'credits,videos,recommendations',
+        include_video_language: 'fa,en'
+    });
 
     // Fetch English details separately for the toggle feature
     let englishData: any = {};
@@ -256,8 +274,30 @@ export const getTmdbReviews = async (id: number, type: MediaType): Promise<Revie
 
 export const getSeasonDetails = async (tvId: number, seasonNumber: number): Promise<Episode[]> => {
     try {
-        const data = await fetchFromTmdb<any>(`/tv/${tvId}/season/${seasonNumber}`);
-        return data.episodes || [];
+        // Fetch Persian data
+        const faPromise = fetchFromTmdb<any>(`/tv/${tvId}/season/${seasonNumber}`);
+        // Fetch English data for fallback (in case Persian synopsis is missing)
+        const enPromise = fetchFromTmdb<any>(`/tv/${tvId}/season/${seasonNumber}`, { language: 'en-US' });
+
+        const [faData, enData] = await Promise.all([faPromise, enPromise]);
+
+        const faEpisodes = faData.episodes || [];
+        const enEpisodes = enData.episodes || [];
+
+        // Merge logic: Use Persian if available, else fallback to English
+        return faEpisodes.map((ep: any) => {
+            const enEp = enEpisodes.find((e: any) => e.id === ep.id);
+            return {
+                id: ep.id,
+                name: ep.name || enEp?.name || `قسمت ${ep.episode_number}`,
+                overview: (ep.overview && ep.overview.trim() !== "") ? ep.overview : (enEp?.overview || ""),
+                vote_average: ep.vote_average,
+                still_path: ep.still_path || enEp?.still_path,
+                air_date: ep.air_date,
+                episode_number: ep.episode_number,
+                runtime: ep.runtime
+            };
+        });
     } catch (error) {
         if ((error as Error).message === 'MISSING_KEY') return [];
         console.error("Failed to fetch season details:", error);

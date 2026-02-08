@@ -1,5 +1,5 @@
 import React from 'react';
-import { Star, Play, Check, Bookmark, Plus } from 'lucide-react';
+import { Star, Info, Check, Bookmark, Plus } from 'lucide-react';
 import { MediaItem } from '../types';
 import { getImageUrl } from '../services/tmdbService';
 import { useAuth } from '../context/AuthContext';
@@ -50,7 +50,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({ item, onClick }) => {
           loading="lazy"
         />
         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-            <Play fill="white" size={48} className="text-white drop-shadow-lg" />
+            <Info fill="white" size={48} className="text-white drop-shadow-lg" />
         </div>
       </div>
       
