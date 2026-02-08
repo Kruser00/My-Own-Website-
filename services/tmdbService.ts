@@ -1,4 +1,4 @@
-import { MediaItem, TmdbResponse, TmdbMovieRaw, TmdbTvRaw, MediaType, Person, Review } from '../types';
+import { MediaItem, TmdbResponse, TmdbMovieRaw, TmdbTvRaw, MediaType, Person, Review, Episode, Collection } from '../types';
 
 const BASE_URL = 'https://api.themoviedb.org/3';
 const LANGUAGE = 'fa-IR'; // Persian language
@@ -91,8 +91,6 @@ export const getTrending = async (type: MediaType): Promise<MediaItem[]> => {
 export const searchMedia = async (query: string): Promise<MediaItem[]> => {
   try {
     if (!query) return [];
-    // Multi-search includes people, so we prefer specific endpoints or filtering
-    // Let's search both and combine for a better "Simulated unified search" or just use multi
     const data = await fetchFromTmdb<TmdbResponse<any>>('/search/multi', { query });
     
     return data.results
@@ -108,16 +106,32 @@ export const searchMedia = async (query: string): Promise<MediaItem[]> => {
 export const getMediaDetails = async (id: number, type: MediaType): Promise<MediaItem | null> => {
   try {
     const endpoint = type === 'movie' ? `/movie/${id}` : `/tv/${id}`;
-    const data = await fetchFromTmdb<any>(endpoint, { append_to_response: 'credits' });
+    // Fetch credits, videos, and recommendations in one go
+    const data = await fetchFromTmdb<any>(endpoint, { append_to_response: 'credits,videos,recommendations' });
     
-    // Normalize detail response which is slightly different from list response but close enough for our props
     const base = type === 'movie' ? normalizeMovie(data) : normalizeTv(data);
     
-    // Add detail specific fields
     base.genres = data.genres;
-    if (type === 'movie') base.runtime = data.runtime;
-    if (type === 'tv') base.number_of_seasons = data.number_of_seasons;
+    if (type === 'movie') {
+        base.runtime = data.runtime;
+        base.belongs_to_collection = data.belongs_to_collection;
+    }
+    if (type === 'tv') {
+        base.number_of_seasons = data.number_of_seasons;
+        base.seasons = data.seasons;
+    }
+    
     base.credits = data.credits;
+    base.videos = data.videos;
+    
+    // Normalize recommendations
+    if (data.recommendations?.results) {
+        base.recommendations = {
+            results: data.recommendations.results.map((r: any) => 
+                r.media_type === 'tv' ? normalizeTv(r) : normalizeMovie(r)
+            )
+        };
+    }
 
     return base;
   } catch (error) {
@@ -134,13 +148,12 @@ export const getPersonDetails = async (id: number): Promise<Person | null> => {
     try {
         const data = await fetchFromTmdb<any>(`/person/${id}`, { append_to_response: 'combined_credits' });
         
-        // Normalize credits
         const cast = (data.combined_credits?.cast || [])
             .filter((c: any) => c.media_type === 'movie' || c.media_type === 'tv')
-            .filter((c: any) => c.poster_path) // Filter out items without posters to look better
+            .filter((c: any) => c.poster_path)
             .map((c: any) => c.media_type === 'movie' ? normalizeMovie(c) : normalizeTv(c))
-            .sort((a: MediaItem, b: MediaItem) => b.vote_count - a.vote_count) // Sort by popularity/votes
-            .slice(0, 15); // Limit to top 15
+            .sort((a: MediaItem, b: MediaItem) => b.vote_count - a.vote_count)
+            .slice(0, 15);
 
         return {
             id: data.id,
@@ -162,9 +175,6 @@ export const getPersonDetails = async (id: number): Promise<Person | null> => {
 export const getTmdbReviews = async (id: number, type: MediaType): Promise<Review[]> => {
     try {
         const endpoint = type === 'movie' ? `/movie/${id}/reviews` : `/tv/${id}/reviews`;
-        // Reviews are often in English, so we might not want to force language=fa-IR if we want to see content
-        // But for consistency let's try. TMDB often returns empty for non-english.
-        // Let's try without language param or just use default
         const data = await fetchFromTmdb<TmdbResponse<any>>(endpoint, { language: 'en-US' }); 
         
         return data.results.map((r: any) => ({
@@ -178,6 +188,51 @@ export const getTmdbReviews = async (id: number, type: MediaType): Promise<Revie
         }));
     } catch (error) {
         console.error("Failed to fetch reviews:", error);
+        return [];
+    }
+};
+
+export const getSeasonDetails = async (tvId: number, seasonNumber: number): Promise<Episode[]> => {
+    try {
+        const data = await fetchFromTmdb<any>(`/tv/${tvId}/season/${seasonNumber}`);
+        return data.episodes || [];
+    } catch (error) {
+        console.error("Failed to fetch season details:", error);
+        return [];
+    }
+};
+
+export const getCollectionDetails = async (collectionId: number): Promise<Collection | null> => {
+    try {
+        const data = await fetchFromTmdb<any>(`/collection/${collectionId}`);
+        return {
+            id: data.id,
+            name: data.name,
+            overview: data.overview,
+            poster_path: data.poster_path,
+            backdrop_path: data.backdrop_path,
+            parts: data.parts.map((p: any) => normalizeMovie(p))
+                .sort((a: MediaItem, b: MediaItem) => new Date(a.release_date).getTime() - new Date(b.release_date).getTime())
+        };
+    } catch (error) {
+        console.error("Failed to fetch collection:", error);
+        return null;
+    }
+};
+
+export const discoverByGenre = async (genreId: number, type: MediaType): Promise<MediaItem[]> => {
+    try {
+        const endpoint = type === 'movie' ? '/discover/movie' : '/discover/tv';
+        const data = await fetchFromTmdb<TmdbResponse<any>>(endpoint, { 
+            with_genres: genreId.toString(),
+            sort_by: 'popularity.desc'
+        });
+        
+        return data.results.map((item: any) => 
+            type === 'movie' ? normalizeMovie(item) : normalizeTv(item)
+        );
+    } catch (error) {
+        console.error("Failed to discover by genre:", error);
         return [];
     }
 };

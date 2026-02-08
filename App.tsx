@@ -4,16 +4,18 @@ import { HomePage } from './pages/HomePage';
 import { MediaDetailsPage } from './pages/MovieDetailsPage';
 import { LoginPage } from './pages/LoginPage';
 import { ProfilePage } from './pages/ProfilePage';
+import { GenrePage } from './pages/GenrePage';
 import { searchMedia, setTmdbApiKey, getTmdbApiKey } from './services/tmdbService';
-import { MediaItem, MediaType } from './types';
+import { MediaItem, MediaType, Genre } from './types';
 import { X, Save, AlertTriangle, Settings } from 'lucide-react';
 import { GeminiAssistant } from './components/GeminiAssistant';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 // Inner App Component to use the Auth Context
 const FilmentoApp = () => {
-  const [currentView, setCurrentView] = useState<'home' | 'details' | 'login' | 'profile'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'details' | 'login' | 'profile' | 'genre'>('home');
   const [selectedMedia, setSelectedMedia] = useState<{id: number, type: MediaType} | null>(null);
+  const [selectedGenre, setSelectedGenre] = useState<{genre: Genre, type: MediaType} | null>(null);
   const [searchResults, setSearchResults] = useState<MediaItem[] | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [apiKeyInput, setApiKeyInput] = useState('');
@@ -33,6 +35,11 @@ const FilmentoApp = () => {
     setSelectedMedia({ id, type });
     setCurrentView('details');
     window.scrollTo(0, 0);
+  };
+
+  const handleGenreClick = (genre: Genre, type: MediaType) => {
+      setSelectedGenre({ genre, type });
+      setCurrentView('genre');
   };
 
   const handleNavigation = (page: string) => {
@@ -79,6 +86,16 @@ const FilmentoApp = () => {
                     mediaType={selectedMedia.type}
                     onBack={() => setCurrentView('home')}
                     onNavigateToMedia={handleMediaClick}
+                    onGenreClick={handleGenreClick}
+                />
+            ) : null;
+        case 'genre':
+            return selectedGenre ? (
+                <GenrePage 
+                    genre={selectedGenre.genre}
+                    type={selectedGenre.type}
+                    onBack={() => setCurrentView('home')}
+                    onMediaClick={handleMediaClick}
                 />
             ) : null;
         case 'home':
